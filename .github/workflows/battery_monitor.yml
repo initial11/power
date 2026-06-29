@@ -1,0 +1,35 @@
+name: 铁塔电量5分钟监控推送
+on:
+  schedule:
+    # 每5分钟执行一次 UTC时间，对应国内北京时间+8
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # 支持手动点击运行测试
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: 设置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 执行电量监控脚本
+        env:
+          # 去仓库 Secrets 添加这两个变量
+          REFRESH_TOKEN: ${{ secrets.TOWER_REFRESH_TOKEN }}
+          BARK_URL: ${{ secrets.BARK_API_URL }}
+        run: node battery_monitor.js
+
+      - name: 提交状态缓存文件变更
+        run: |
+          git config --global user.name "Github Actions Bot"
+          git config --global user.email "bot@github.com"
+          git add status_cache.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "更新低电量通知标记"
+          git push
